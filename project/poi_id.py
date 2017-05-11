@@ -7,6 +7,7 @@ sys.path.append("../tools/")
 from prep_dataset import *
 from feature_format import featureFormat, targetFeatureSplit
 from tester import dump_classifier_and_data
+from ml_models import *
 
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
@@ -14,8 +15,8 @@ from tester import dump_classifier_and_data
 
 ### The features below are a mix of the original features found in the dataset and features created
 ### or transformed by me:
-features_list = ['poi', 'salary', 'expenses', 'director_fees', 'log_bonus', 'log_deferred_income',
-    'log_long_term_incentive', 'log_other', 'log_restricted_stock_deferred', 
+features_list = ['poi', 'salary', 'bonus', 'expenses', 'director_fees', 'log_deferred_income',
+    'log_long_term_incentive', 'log_other', 'log_restricted_stock_deferred', 'log_bonus', 
     'log_total_stock_value', 'sent_vs_received', 'total_emails', 'emails_with_poi']
 
 ### Load the dictionary containing the dataset
@@ -55,19 +56,36 @@ labels, features = targetFeatureSplit(data)
 ### together. Given the very small dataset, we use cross-validation on stratified shuffle splits to 
 ### train and test the models at the same time.
 seed = 42
-
-# Grid of parameters to explore when tuning the model:
-param_grid = {'gamma': np.logspace(-9, 5, 15, base = 2.), 'C': np.logspace(-9, 5, 15, base = 2.)}
 # Scoring method to use during model tuning:
 scoring = 'f1'
+
+# ************* Support Vector Machine classifier **********************
+# Grid of parameters to explore when tuning the model:
+svc_grid = {'gamma': np.logspace(-9., 5., 15, base = 2.), 'C': np.logspace(-9., 5., 15, base = 2.)}
 # Find optimal model parameters:
-params = tune_svc(features, labels, param)
+svc_params, svc_score = tune_svc(features, labels, svc_grid, scoring = scoring, seed = seed)
 # Make pipeline using these parameters:
-clf = make_svc_pipeline(params)
+svc_clf = make_svc_pipeline(svc_params)
+
+# ************* Random Forest classifier *******************************
+# Grid of parameters to explore when tuning the model:
+rf_grid = {'n_estimators': [40, 50, 60, 70, 80, 90], 'max_features': [4, 5, 6, 7]}
+# Find optimal model parameters:
+rf_params, rf_score = tune_rf(features, labels, rf_grid, scoring = scoring, seed = seed)
+# Make pipeline using these parameters:
+rf_clf = make_rf_pipeline(rf_params)
+
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
 ### check your results. You do not need to change anything below, but make sure
 ### that the version of poi_id.py that you submit can be run on its own and
 ### generates the necessary .pkl files for validating your results.
 
+# Retain the model giving the best CV score:
+if svc_score >= rf_score:
+    clf = svc_clf
+else:
+    clf = rf_score
+
+# Dump data into a pickle file:    
 dump_classifier_and_data(clf, my_dataset, features_list)
