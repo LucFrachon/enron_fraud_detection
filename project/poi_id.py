@@ -4,37 +4,46 @@ import sys
 import pickle
 sys.path.append("../tools/")
 
+from prep_dataset import *
 from feature_format import featureFormat, targetFeatureSplit
 from tester import dump_classifier_and_data
 
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
 ### The first feature must be "poi".
-features_list = ['poi','salary'] # You will need to use more features
+
+### The features below are a mix of the original features found in the dataset and features created
+### or transformed by me:
+features_list = ['poi', 'salary', 'expenses', 'director_fees', 'log_bonus', 'log_deferred_income',
+    'log_long_term_incentive', 'log_other', 'log_restricted_stock_deferred', 
+    'log_total_stock_value', 'sent_vs_received', 'total_emails', 'emails_with_poi']
 
 ### Load the dictionary containing the dataset
 with open("final_project_dataset.pkl", "r") as data_file:
     data_dict = pickle.load(data_file)
 
+### Convert the data to a Pandas DataFrame and clean two errors (shifted columns for R. Belfer and
+### S. Bhatnagar)
+data_df = convert_and_clean_data(data_dict, fill_na = 1.e-5)
+
 ### Task 2: Remove outliers
+data_df = drop_outliers(data_df, ['TOTAL'])
+
 ### Task 3: Create new feature(s)
-### Store to my_dataset for easy export below.
-my_dataset = data_dict
+# Define list of features to apply log transformation to:
+log_columns = ['bonus', 'deferred_income', 'long_term_incentive', 'other', 
+    'restricted_stock_deferred', 'total_stock_value']
+# Create new email features and apply log transformation:
+data_df = create_new_features(data_df, log_columns)
+
+### Store to my_dataset for easy export below 
+my_dataset = data_df.to_dict(orient = 'index')
 
 ### Extract features and labels from dataset for local testing
 data = featureFormat(my_dataset, features_list, sort_keys = True)
 labels, features = targetFeatureSplit(data)
 
 ### Task 4: Try a varity of classifiers
-### Please name your classifier clf for easy export below.
-### Note that if you want to do PCA or other multi-stage operations,
-### you'll need to use Pipelines. For more info:
-### http://scikit-learn.org/stable/modules/pipeline.html
-
-# Provided to give you a starting point. Try a variety of classifiers.
-from sklearn.naive_bayes import GaussianNB
-clf = GaussianNB()
-
 ### Task 5: Tune your classifier to achieve better than .3 precision and recall 
 ### using our testing script. Check the tester.py script in the final project
 ### folder for details on the evaluation method, especially the test_classifier
@@ -42,10 +51,19 @@ clf = GaussianNB()
 ### stratified shuffle split cross validation. For more info: 
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
-# Example starting point. Try investigating other evaluation techniques!
-from sklearn.cross_validation import train_test_split
-features_train, features_test, labels_train, labels_test = \
-    train_test_split(features, labels, test_size=0.3, random_state=42)
+### Using cross-validation to determine the best parameters, therefore tasks 4 and 5 are performed 
+### together. Given the very small dataset, we use cross-validation on stratified shuffle splits to 
+### train and test the models at the same time.
+seed = 42
+
+# Grid of parameters to explore when tuning the model:
+param_grid = {'gamma': np.logspace(-9, 5, 15, base = 2.), 'C': np.logspace(-9, 5, 15, base = 2.)}
+# Scoring method to use during model tuning:
+scoring = 'f1'
+# Find optimal model parameters:
+params = tune_svc(features, labels, param)
+# Make pipeline using these parameters:
+clf = make_svc_pipeline(params)
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
 ### check your results. You do not need to change anything below, but make sure
