@@ -24,7 +24,7 @@ def tune_svc(X, y, param_grid, scoring, seed):
     svc = SVC()
 
     # Cross-validation and grid search:
-    cv = StratifiedShuffleSplit(n_splits = 10, test_size = 0.3, random_state = seed * 2)
+    cv = StratifiedShuffleSplit(n_splits = 100, test_size = 0.3, random_state = seed * 2)
     gscv = GridSearchCV(svc, param_grid = param_grid, scoring = scoring, cv = cv, verbose = 1, 
         n_jobs = -1)
 
@@ -66,7 +66,7 @@ def tune_rf(X, y, param_grid, scoring, seed):
     rf = RandomForestClassifier()
 
     # Cross-validation and grid search:
-    cv = StratifiedShuffleSplit(n_splits = 10, test_size = 0.3, random_state = seed * 2)
+    cv = StratifiedShuffleSplit(n_splits = 100, test_size = 0.3, random_state = seed * 2)
     gscv = GridSearchCV(rf, param_grid = param_grid, scoring = scoring, cv = cv, verbose = 1, 
         n_jobs = -1)
 
