@@ -28,7 +28,7 @@ with open("final_project_dataset.pkl", "r") as data_file:
 data_df = convert_and_clean_data(data_dict, fill_na = 1.e-5)
 
 ### Task 2: Remove outliers
-data_df = drop_outliers(data_df, ['TOTAL'])
+data_df = drop_outliers(data_df, ['TOTAL', 'THE TRAVEL AGENCY IN THE PARK'])
 
 ### Task 3: Create new feature(s)
 # Define list of features to apply log transformation to:
@@ -69,7 +69,7 @@ svc_clf = make_svc_pipeline(svc_params)
 
 # ************* Random Forest classifier *******************************
 # Grid of parameters to explore when tuning the model:
-rf_grid = {'n_estimators': [40, 50, 60, 70, 80, 90], 'max_features': [4, 5, 6, 7]}
+rf_grid = {'n_estimators': [3, 4, 5, 8, 12, 15, 20, 30], 'max_features': [2, 3, 4, 5, 6, 7]}
 # Find optimal model parameters:
 rf_params, rf_score = tune_rf(features, labels, rf_grid, scoring = scoring, seed = seed)
 # Make pipeline using these parameters:

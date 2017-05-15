@@ -10,9 +10,42 @@ This project aims at predicting whether a person involved in the Enron demise is
 
 **Note:** The full record of emails for each person is also provided and could be a useful addition to the dataset. Processing this data involves common Natural Language Processing techniques, but I have elected not to use them in this project due to time constraints. The sheer amount of data in these emails would have made the whole project a lot more demanding in terms of time requirements. For an example of NLP project, see my [Shinyapp](https://lucfrachon-ds.shinyapps.io/NLP_NextWordPrediction/).
 
-The dataset contains 146 observations (persons) and 21 features for each. A detailed exploratory analysis of the dataset including plots can be found in [`enron_exploration.html`](./enron_exploration.html) (a render of `enron_exploration.ipynb`). `poi` is the outcome variable (that we are trying to predict) and there are 20 predictors. NAs in the dataset are actually zeros. I replaced them with 1.e-5 to avoid issues with log conversions (as log(0) is undefined). For the same reason, I took the absolute values of all variables (I noticed that two of the variables, `deferred_income` and `restricted_stock_deferred`, had only negative values whereas all the other were always positive).
+The dataset contains 146 observations (persons) and 21 features for each. A detailed exploratory analysis of the dataset including plots can be found in [`enron_exploration.html`](./enron_exploration.html) (a render of `enron_exploration.ipynb`). `poi` is the outcome variable (that we are trying to predict) and there are 20 predictors. NAs in the dataset are actually zeros; here is a count of NAs by feature:
+
+|Feature name		   | NAs |
+|--------------------------|-----|
+|loan_advances             |  142|
+|director_fees             |  129|
+|restricted_stock_deferred |  128|
+|deferral_payments         |  107|
+|deferred_income           |   97|
+|long_term_incentive       |   80|
+|bonus                     |   64|
+|from_poi_to_this_person   |   60|
+|shared_receipt_with_poi   |   60|
+|to_messages               |   60|
+|from_this_person_to_poi   |   60|
+|from_messages             |   60|
+|other                     |   53|
+|expenses                  |   51|
+|salary                    |   51|
+|exercised_stock_options   |   44|
+|restricted_stock          |   36|
+|total_payments            |   21|
+|total_stock_value         |   20|
+|email_address             |    0|
+|poi                       |    0|
+
+
+`loan_advances` has 142 NAs out of 146 features, so we will not retain it in our model. 
+
+After these investigations, replaced them with 1.e-5 to avoid issues with log conversions (as log(0) is undefined). For the same reason, I took the absolute values of all variables (I noticed that two of the variables, `deferred_income` and `restricted_stock_deferred`, had only negative values whereas all the other were always positive).
+
+There are two outliers immediately visible: `LOCKART EUGENE E` and `THE TRAVEL AGENCY IN THE PARK`. The first one has zeros (or 1.e-5 now) on every single feature, and the latter is obviously not a real person but a company. I decided to retain the first one (after all, the fact that this Mr. Lockart received nothing and is not a POI might be interesting per se), and drop the second one as we are investigating people, not suppliers.
 
 By plotting the first two predictors, I found a clear outlier whose salary seemed almost an order of magnitude above everyone else's. Upon closer look, it appeared that this was actually the 'TOTAL' row from the `enron61702insiderpay.pdf` document! I quickly dropped this entry. The other outliers are actual data and I therefore decided to retain them.
+
+We are therefore left with 144 observations.
 
 Further exporation also allowed me to notice that for two of the individuals in the dataset, the data had been shifted to the left or to the right by one column. The persons in question are Robert Belfer and Sanjay Bhatnagar. Again, I corrected the data by shifting everything back to its correct position.
 
@@ -56,8 +89,8 @@ Against expectations, the SVC performed much better after tuning and training:
 
 | Model         | Best CV F1-score |
 |---------------|------------------|
-| SVC           | 0.5794           |
-| Random Forest | 0.2319           |
+| SVC           | 0.5655           |
+| Random Forest | 0.2688           |
 
 ## 4. Algorithm tuning
 
@@ -70,7 +103,7 @@ The `tester.py` module used to grade the project performs 1000 stratified splits
 
 For the SVC model, I varied `C` and `gamma` on a log space using base 2, i.e. a grid where values are evenly separated on a log2 scale. Values ranged from 1.95e-3 to 32, with 15 steps.
 
-For the Random Forest, I varied `n_estimators` and `max_features` using the values (40, 50, 60, 70, 80, 90) and (4, 5, 6, 7) respectively (earlier tests allowed me to zoom in to these ranges).
+For the Random Forest, I varied `n_estimators` and `max_features` using the values (3, 4, 5, 8, 12, 15, 30) and (2, 3, 4, 5, 6, 7) respectively (earlier tests allowed me to zoom in to these ranges).
 
 
 ## 5. Validation strategy
@@ -115,28 +148,20 @@ The final model is a Support Vector Classifier with C = 8.0 and gamma = 0.5.
 |          label |   0 |  1 |
 |----------------|-----|----|
 | **prediction** |   - |  - |
-|          **0** |12809| 928|
-|          **1** |191  |1072|
+|          **0** |12805| 959|
+|          **1** |195  |1041|
 
 * Metrics:
 
-	- Accuracy: 0.92540
-	- Precision: 0.84877
-	- Recall: 0.53600
-	- F1: 0.65706
+	- Accuracy: 0.92307
+	- Precision: 0.84223
+	- Recall: 0.52050
+	- F1: 0.64339
 	
 Concretely, this means that:
 
-- 92.54% of all observations where correctly classified, a good improvement over the 87% that the no-information model would reach
-- 84.88% of the individuals classified as POI where actually POIs -- this is also called the Predictive Positive Value. In other words, when the model tells us that someone is a POI, we are 84.88% certain that it is right.
-- 53.60% of the actual POI where classified as POIs. This is also called Sensitivity. In other words, given a bunch of people, we estimate that the model will correctly detect 53.60% of the POIs.
+- 92.31% of all observations where correctly classified, a good improvement over the 87% that the no-information model would reach
+- 84.22% of the individuals classified as POI where actually POIs -- this is also called the Predictive Positive Value. In other words, when the model tells us that someone is a POI, we are 84.88% certain that it is right.
+- 52.05% of the actual POI where classified as POIs. This is also called Sensitivity. In other words, given a bunch of people, we estimate that the model will correctly detect 52.05% of the POIs.
 
 A possible way to play with this trade-off would be to have the model compute class probabilities and set a threshold manually for class 1 vs. class 0. By adjusting this threshold, we would be able to increase or decrease precision vs recall, depending on whether we are more interested in detecting as many POIs as possible even if some non-POI get flagged, or be conservative and avoid false alarms even if that means missing some actual POIs.
-
-	 
-	
-
-
-
-
-
