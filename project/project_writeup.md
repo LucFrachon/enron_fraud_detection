@@ -4,6 +4,14 @@
 ----
 
 
+[//]: # (Image References)
+[image1]: ./img/boxplots_1.png
+[image2]: ./img/boxplots_2.png
+[image3]: ./img/boxplots_3.png
+[image4]: ./img/boxplots_4.png
+[image5]: ./img/boxplots_new_features.png
+
+
 ## 1. Presentation of project
 
 This project aims at predicting whether a person involved in the Enron demise is a person of interest (POI). This prediction uses financial data (salary, incentives, stock value etc.) and email data (number of emails sent/received, number of emails to/from persons of interest etc.). A person of interest (POI) is someone who has been convicted, heard as a witness or otherwise involved in the judicial proceedings that followed the Enron scandal.
@@ -37,7 +45,7 @@ The dataset contains 146 observations (persons) and 21 features for each. A deta
 |poi                       |    0|
 
 
-`loan_advances` has 142 NAs out of 146 features, so we will not retain it in our model. 
+`loan_advances` has 142 NAs out of 146 observations, so we will not retain it in our model. 
 
 After these investigations, replaced them with 1.e-5 to avoid issues with log conversions (as log(0) is undefined). For the same reason, I took the absolute values of all variables (I noticed that two of the variables, `deferred_income` and `restricted_stock_deferred`, had only negative values whereas all the other were always positive).
 
@@ -53,12 +61,58 @@ Further exporation also allowed me to notice that for two of the individuals in 
 ## 2. Feature selection and engineering
 
 The steps below are described in detail in [`enron_exploration.html`](./enron_exploration.html), along with the plots I mention.
-To decide which variables to retain, I made boxplots of each grouped by POI to see which displayed significant association with the outcome variable. I excluded variables with an insufficient number of non-zero values.
-By plotting histograms I also checked which features would benefit from logarithmic transformation.
-Finally, I aggregated email features to reduce dimensionality. Given the low number of observations, it is important to make the dataset as low-dimensional as possible to make ML algorithms work.
+To decide which variables to retain, I made boxplots of each grouped by POI to see which displayed significant association with the outcome variable. By plotting histograms I also checked which features would benefit from logarithmic transformation.
 
-Naturally, I tried different combinations of variables and measured the cross-validation score before retaining the final set.
-I also accidentally noticed that keeping both `bonus` and its log-transformed variant helps model performance significantly. This is somewhat counter-intuitive, as it is the same information that is encoded in both, albeit differently, but the model's accuracy (or more precisely, its F1-score) drops when removing one or the other.
+I have reproduced the boxplots from the exploration file below to illustrate what the reasoning was behind the variable selection process.
+
+* Financial information:
+
+![alt_text][image1]
+![alt_text][image2]
+
+
+* Stock information:
+
+![alt_text][image3]
+
+* E-mail information:
+
+![alt_text][image4]
+
+
+Finally, I aggregated email features to reduce dimensionality. Given the low number of observations, it is important to make the dataset as low-dimensional as possible to make ML algorithms work. The resoning behind these new variables is the following:
+
+- `sent_vs_received` = `from_messages` / `to_messages`: I had an intuition that because POIs are probably mostly senior executives, they would tend to receive much more emails than they send out. This variable reflects this.
+- `total_emails` = `from_messages` + `to_messages`: Again, I would expect POIs to be involved (even if just CC'd) in much more email traffic than the average.
+- `emails_with_poi` = `from_this_person_to_poi` + `from_poi_to_this_person` + `shared_receipt_with_poi`: If POIs are a somewhat specific population within the company (and hopefully they are, otherwise our attempts at a predictive model are doomed to failure), it is reasonable to think that they are involved in the same conversations, whether they send or receive the emails. Aggregating these three variables reflects this intuition and reduces the number of features.
+
+* Here is how these new variables look in a boxplot:
+
+![alt_text][image5]
+
+To determine the optimal set of variables, I explored the feature space along 4 dimensions:
+
+- Apply log transform to the variables that most benefit from it (from the exploratory analysis plots) or keep original values
+- Drop `deferral_payments`or keep it. This feature has a high number of zeros (107 out of 146 observations) and the boxplot shows that there does not seem to be a clear separation between POIs and non-POIs. Note that we drop `loan_advances` in all model iterations because it has 142 zeros. Converserly, `director_fees` and `restricted_stock_deferred` are also near-zero variables but they both have an interesting property: Only non-POIs have non-zero values. Therefore, they seem important to improve the model's specificity. They are therefore retained in all model iterations.
+- Retain original e-mail features or replace them with the new features described above.
+- Drop or retain `total_payment` as it is an aggregate of all other salary features; drop or retain `exercised_stock_options` and `restricted_stock` as we already have `total_stock_value` which is the sum of these variables (plus `restricted_stock_deferred`, which we have decided to keep anyway as explained above). You might notice that I'd rather keep `total_stock_value` and drop its components, while I chose to do the opposite with `total_payment`. This is because there are only three variables that make up `total_stock_value`, therefore I feel that we'd loose less information by using the aggregate than if we did so with `total_payment`, which contains values from 9 features.
+
+I also accidentally noticed that keeping both `bonus` and its log-transformed variant helps model performance significantly. This is somewhat counter-intuitive, as it is the same information that is encoded in both, albeit differently, but the model's  F1-score drops when removing one or the other.
+
+With this in mind, I tried many iterations of the model. I used cross-validation to tune them and made note of the best cross-validation F1-score. Here is the outcome (best cross-validation score in **bold**):
+
+| Log transforms | Keep `deferral_payments` | Use new email features | Keep `total_payments`/stock vars | RF score | SVC score  |
+|----------------|--------------------------|------------------------|----------------------------------|----------|------------|
+| No		 | Yes			    | No		     | Yes				| 0.2491   | 0.1835	|
+| Yes		 | Yes			    | No		     | Yes				| 0.2422   | 0.4037	|
+| Yes		 | No			    | No		     | Yes				| 0.2717   | 0.3757	|
+| Yes 		 | Yes			    | Yes		     | Yes				| 0.2510   | 0.4046	|
+| Yes		 | Yes			    | No		     | No				| 0.2661   | 0.5252	|
+| Yes		 | No			    | No		     | No				| 0.2443   | 0.5122	|
+| Yes		 | Yes			    | Yes		     | No				| 0.2956   | **0.5671**	|
+| Yes		 | No			    | Yes		     | No				| 0.2763   | 0.5655	|
+
+
 
 The final set of variables that I used is therefore:
 
@@ -72,9 +126,10 @@ The final set of variables that I used is therefore:
 - `log_restricted_stock_deferred`
 - `log_bonus`
 - `log_total_stock_value`
-- `sent_vs_received` = `from_messages` / `to_messages`
-- `total_emails` = `from_messages` + `to_messages`
-- `emails_with_poi` = `from_this_person_to_poi` + `from_poi_to_this_person` + `shared_receipt_with_poi`
+- `sent_vs_received`
+- `total_emails`
+- `emails_with_poi`
+
 
 As part of the pipeline used to train the model, I scaled the variables. I tried both RobustScaler and StandardScaler and the latter performed better.
 
@@ -83,14 +138,15 @@ As part of the pipeline used to train the model, I scaled the variables. I tried
 
 Given the time constraint, I wanted to try a fairly simple, standard algorithm and an ensemble algorithm. For the former, I selected a Support Vector Machine classifier because although fairly simple and easy to optimize, it gives good results in many situtations. As for the latter, I chose Random Forest because it is relatively easy to tune with a limited number of really impacting parameters, and it worked well for me in several projects in the past.
 
-Against expectations, the SVC performed much better after tuning and training:
+The detailed iterations of the model are presented in the section Against expectations, the SVC performed much better after tuning and training:
 
 **Cross-validation accuracy (Stratified Shuffle Split, 10 folds):**
 
 | Model         | Best CV F1-score |
 |---------------|------------------|
-| SVC           | 0.5655           |
-| Random Forest | 0.2688           |
+| SVC           | 0.5671           |
+| Random Forest | 0.2956           |
+
 
 ## 4. Algorithm tuning
 
@@ -103,7 +159,7 @@ The `tester.py` module used to grade the project performs 1000 stratified splits
 
 For the SVC model, I varied `C` and `gamma` on a log space using base 2, i.e. a grid where values are evenly separated on a log2 scale. Values ranged from 1.95e-3 to 32, with 15 steps.
 
-For the Random Forest, I varied `n_estimators` and `max_features` using the values (3, 4, 5, 8, 12, 15, 30) and (2, 3, 4, 5, 6, 7) respectively (earlier tests allowed me to zoom in to these ranges).
+For the Random Forest, I varied `n_estimators` and `max_features` using the values (3, 4, 5, 8) and (2, 3, 4, 5) respectively (earlier tests allowed me to zoom in to these ranges).
 
 
 ## 5. Validation strategy
@@ -148,20 +204,20 @@ The final model is a Support Vector Classifier with C = 8.0 and gamma = 0.5.
 |          label |   0 |  1 |
 |----------------|-----|----|
 | **prediction** |   - |  - |
-|          **0** |12805| 959|
-|          **1** |195  |1041|
+|          **0** |12801| 959|
+|          **1** |199  |1041|
 
 * Metrics:
 
-	- Accuracy: 0.92307
-	- Precision: 0.84223
+	- Accuracy: 0.92280
+	- Precision: 0.83952
 	- Recall: 0.52050
-	- F1: 0.64339
+	- F1: 0.64259
 	
 Concretely, this means that:
 
-- 92.31% of all observations where correctly classified, a good improvement over the 87% that the no-information model would reach
-- 84.22% of the individuals classified as POI where actually POIs -- this is also called the Predictive Positive Value. In other words, when the model tells us that someone is a POI, we are 84.88% certain that it is right.
-- 52.05% of the actual POI where classified as POIs. This is also called Sensitivity. In other words, given a bunch of people, we estimate that the model will correctly detect 52.05% of the POIs.
+- 92.3% of all observations where correctly classified, a good improvement over the 87% that the no-information model would reach
+- 84.0% of the individuals classified as POI where actually POIs -- this is also called the Predictive Positive Value. In other words, when the model tells us that someone is a POI, we are 84% certain that it is right.
+- 52.1% of the actual POI where classified as POIs. This is also called Sensitivity. In other words, given a bunch of people, we estimate that the model will correctly detect 52.1% of the POIs.
 
 A possible way to play with this trade-off would be to have the model compute class probabilities and set a threshold manually for class 1 vs. class 0. By adjusting this threshold, we would be able to increase or decrease precision vs recall, depending on whether we are more interested in detecting as many POIs as possible even if some non-POI get flagged, or be conservative and avoid false alarms even if that means missing some actual POIs.

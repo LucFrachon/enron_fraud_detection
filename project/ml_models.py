@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import RobustScaler, StandardScaler
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
@@ -91,3 +93,25 @@ def make_rf_pipeline(params):
     clf.set_params(rf__max_features = params['max_features'], 
         rf__n_estimators = params['n_estimators'])
     return clf
+
+
+def rf_feature_selection(X, y, params, feature_names):
+    rf = RandomForestClassifier(max_features = params['max_features'], 
+        n_estimators = params['n_estimators'])
+    rf.fit(X, y)
+    importances = rf.feature_importances_
+    std = np.std([tree.feature_importances_ for tree in rf.estimators_], axis = 0)
+    indices = np.argsort(importances)[::-1]
+    names = [feature_names[n] for n in indices]
+    print indices
+
+    plt.figure()
+    plt.title("Feature importances")
+    plt.bar(range(len(X[0])), importances[indices], color = "r", yerr = std[indices], 
+        align = 'center') 
+    locs, xlabels = plt.xticks(range(len(X[0])), names)
+    plt.xlim([-1, len(X[0])])
+    plt.setp(xlabels, rotation = 90, verticalalignment = 'bottom')
+    plt.show()
+    return names
+

@@ -15,9 +15,58 @@ from ml_models import *
 
 ### The features below are a mix of the original features found in the dataset and features created
 ### or transformed by me:
-features_list = ['poi', 'salary', 'bonus', 'expenses', 'director_fees', 'log_deferred_income',
-    'log_long_term_incentive', 'log_other', 'log_restricted_stock_deferred', 'log_bonus', 
-    'log_total_stock_value', 'sent_vs_received', 'total_emails', 'emails_with_poi']
+
+# # All original variables except loan_advances:
+# features_list = ['poi', 'salary', 'bonus', 'long_term_incentive', 'deferred_income', 
+#     'deferral_payments', 'other', 'expenses', 'director_fees', 'total_payments', 
+#     'exercised_stock_options', 'restricted_stock', 'restricted_stock_deferred', 'total_stock_value',
+#     'from_messages', 'to_messages', 'from_poi_to_this_person', 'from_this_person_to_poi', 
+#     'shared_receipt_with_poi']
+
+# # All original variables except loan_advances, using log variants
+# features_list = ['poi', 'salary', 'bonus', 'log_bonus', 'log_long_term_incentive', 'log_deferred_income', 
+#     'deferral_payments', 'log_other', 'expenses', 'director_fees', 'total_payments', 
+#     'exercised_stock_options', 'restricted_stock', 'log_restricted_stock_deferred', 'log_total_stock_value',
+#     'from_messages', 'to_messages', 'from_poi_to_this_person', 'from_this_person_to_poi', 
+#     'shared_receipt_with_poi']
+
+# # Removing variable deferral_payments
+# features_list = ['poi', 'salary', 'bonus', 'log_bonus', 'log_long_term_incentive', 'log_deferred_income', 
+#     'log_other', 'expenses', 'total_payments', 'director_fees', 'log_restricted_stock_deferred', 
+#     'exercised_stock_options', 'restricted_stock', 'log_total_stock_value',
+#     'from_messages', 'to_messages', 'from_poi_to_this_person', 'from_this_person_to_poi', 
+#     'shared_receipt_with_poi']
+
+# # All original variables except loan_advances, using log variants, replacing email features with aggregates
+# features_list = ['poi', 'salary', 'bonus', 'log_bonus', 'log_long_term_incentive', 'log_deferred_income', 
+#     'log_other', 'expenses', 'total_payments', 'director_fees', 'log_restricted_stock_deferred', 'deferral_payments',
+#     'exercised_stock_options', 'restricted_stock', 'log_total_stock_value',
+#     'sent_vs_received', 'total_emails', 'emails_with_poi']
+
+# # Keep original email features, keep deferral_payments, drop total_payments and non-total stock features
+# features_list = ['poi', 'salary', 'bonus', 'log_bonus', 'log_long_term_incentive', 'log_deferred_income', 
+#     'log_other', 'expenses', 'director_fees', 'log_restricted_stock_deferred', 'deferral_payments',
+#     'log_total_stock_value', 'from_messages', 'to_messages', 'from_poi_to_this_person', 'from_this_person_to_poi', 
+#     'shared_receipt_with_poi']
+
+# # Drop deferral_payments
+# features_list = ['poi', 'salary', 'bonus', 'log_bonus', 'log_long_term_incentive', 'log_deferred_income', 
+#     'log_other', 'expenses', 'director_fees', 'log_restricted_stock_deferred', 'log_total_stock_value', 
+#     'from_messages', 'to_messages', 'from_poi_to_this_person', 'from_this_person_to_poi', 
+#     'shared_receipt_with_poi']
+
+# Keep deferral_payments, use new email features
+features_list = ['poi', 'salary', 'bonus', 'log_bonus', 'log_long_term_incentive', 'log_deferred_income', 
+    'log_other', 'expenses', 'director_fees', 'log_restricted_stock_deferred', 'log_total_stock_value', 
+    'deferral_payments', 'sent_vs_received', 'total_emails', 'emails_with_poi']
+
+# # Drop deferral_payments
+# features_list = ['poi', 'salary', 'bonus', 'log_bonus', 'log_long_term_incentive', 'log_deferred_income', 
+#     'log_other', 'expenses', 'director_fees', 'log_restricted_stock_deferred', 'log_total_stock_value', 
+#     'sent_vs_received', 'total_emails', 'emails_with_poi']
+
+
+
 
 ### Load the dictionary containing the dataset
 with open("final_project_dataset.pkl", "r") as data_file:
@@ -44,6 +93,8 @@ my_dataset = data_df.to_dict(orient = 'index')
 data = featureFormat(my_dataset, features_list, sort_keys = True)
 labels, features = targetFeatureSplit(data)
 
+
+
 ### Task 4: Try a varity of classifiers
 ### Task 5: Tune your classifier to achieve better than .3 precision and recall 
 ### using our testing script. Check the tester.py script in the final project
@@ -52,12 +103,18 @@ labels, features = targetFeatureSplit(data)
 ### stratified shuffle split cross validation. For more info: 
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
-### Using cross-validation to determine the best parameters, therefore tasks 4 and 5 are performed 
-### together. Given the very small dataset, we use cross-validation on stratified shuffle splits to 
-### train and test the models at the same time.
+# ************* Random Forest classifier *******************************
+### Using cross-validation to determine the best parameters, therefore tasks 4 and 5 are performed
+### together.
 seed = 42
 # Scoring method to use during model tuning:
 scoring = 'f1'
+# Grid of parameters to explore when tuning the model:
+rf_grid = {'n_estimators': [3, 4, 5, 8], 'max_features': [2, 3, 4, 5]}
+# Find optimal model parameters:
+rf_params, rf_score = tune_rf(features, labels, rf_grid, scoring = scoring, seed = seed)
+# Make pipeline using these parameters:
+rf_clf = make_rf_pipeline(rf_params)
 
 # ************* Support Vector Machine classifier **********************
 # Grid of parameters to explore when tuning the model:
@@ -66,15 +123,6 @@ svc_grid = {'gamma': np.logspace(-9., 5., 15, base = 2.), 'C': np.logspace(-9., 
 svc_params, svc_score = tune_svc(features, labels, svc_grid, scoring = scoring, seed = seed)
 # Make pipeline using these parameters:
 svc_clf = make_svc_pipeline(svc_params)
-
-# ************* Random Forest classifier *******************************
-# Grid of parameters to explore when tuning the model:
-rf_grid = {'n_estimators': [3, 4, 5, 8, 12, 15, 20, 30], 'max_features': [2, 3, 4, 5, 6, 7]}
-# Find optimal model parameters:
-rf_params, rf_score = tune_rf(features, labels, rf_grid, scoring = scoring, seed = seed)
-# Make pipeline using these parameters:
-rf_clf = make_rf_pipeline(rf_params)
-
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
 ### check your results. You do not need to change anything below, but make sure
